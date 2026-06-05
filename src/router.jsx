@@ -1,15 +1,17 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
-import MainLayout from './components/layout/MainLayout';
-import LoadingSpinner from './components/ui/LoadingSpinner';
+import MainLayout from '@/components/layout/MainLayout';
+import { ProtectedRoute, PublicRoute } from '@/components/ProtectedRoute/ProtectedRoute';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
-// Lazy load pages for code splitting
-const Home = lazy(() => import('./pages/Home/Home'));
-const Watch = lazy(() => import('./pages/Watch/Watch'));
-const Library = lazy(() => import('./pages/Library/Library'));
-const History = lazy(() => import('./pages/History/History'));
-const LikedVideos = lazy(() => import('./pages/LikedVideos/LikedVideos'));
-const NotFound = lazy(() => import('./pages/NotFound/NotFound'));
+// Lazy load pages
+const Home = lazy(() => import('@/pages/Home/Home'));
+const Watch = lazy(() => import('@/pages/Watch/Watch'));
+const Library = lazy(() => import('@/pages/Library/Library'));
+const History = lazy(() => import('@/pages/History/History'));
+const Login = lazy(() => import('@/pages/Login/Login'));
+const AuthCallback = lazy(() => import('@/pages/Auth/Callback'));
+const NotFound = lazy(() => import('@/pages/NotFound/NotFound'));
 
 const SuspenseWrapper = ({ children }) => (
   <Suspense fallback={<LoadingSpinner />}>
@@ -20,7 +22,11 @@ const SuspenseWrapper = ({ children }) => (
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <MainLayout />,
+    element: (
+      <ProtectedRoute>
+        <MainLayout />
+      </ProtectedRoute>
+    ),
     children: [
       {
         index: true,
@@ -54,22 +60,32 @@ export const router = createBrowserRouter([
           </SuspenseWrapper>
         ),
       },
-      {
-        path: 'liked-videos',
-        element: (
-          <SuspenseWrapper>
-            <LikedVideos />
-          </SuspenseWrapper>
-        ),
-      },
-      {
-        path: '*',
-        element: (
-          <SuspenseWrapper>
-            <NotFound />
-          </SuspenseWrapper>
-        ),
-      },
     ],
+  },
+  {
+    path: '/login',
+    element: (
+      <PublicRoute>
+        <SuspenseWrapper>
+          <Login />
+        </SuspenseWrapper>
+      </PublicRoute>
+    ),
+  },
+  {
+    path: '/auth/callback',
+    element: (
+      <SuspenseWrapper>
+        <AuthCallback />
+      </SuspenseWrapper>
+    ),
+  },
+  {
+    path: '*',
+    element: (
+      <SuspenseWrapper>
+        <NotFound />
+      </SuspenseWrapper>
+    ),
   },
 ]);

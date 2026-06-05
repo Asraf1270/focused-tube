@@ -1,80 +1,200 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase/client';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { authService } from '@/lib/supabase/auth';
+import { supabase } from '@/lib/supabase/client';
 
-const AuthContext = createContext({});
+const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  /**
+   * Initialize auth state
+   */
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setLoading(false);
-    });
+    let mounted = true;
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-        } else {
-          setProfile(null);
+    async function initializeAuth() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Get initial session
+        const currentSession = await authService.getSession();
+        
+        if (!mounted) return;
+
+        if (currentSession) {
+          setSession(currentSession);
+          setUser(currentSession.user);
+          setIsAuthenticated(true);
+
+          // Fetch user profile
+          const userProfile = await authService.getUserProfile(currentSession.user.id);
+          if (mounted) {
+            setProfile(userProfile);
+          }
         }
-        setLoading(false);
+      } catch (err) {
+        console.error('Auth initialization error:', err);
+        if (mounted) {
+          setError(err.message);
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    initializeAuth();
+
+    // Subscribe to auth state changes
+    const { data: { subscription } } = authService.onAuthStateChange(
+      async (event, newSession) => {
+        if (!mounted) return;
+
+        console.log('Auth state changed:', event);
+
+        switch (event) {
+          case 'SIGNED_IN':
+            setSession(newSession);
+            setUser(newSession.user);
+            setIsAuthenticated(true);
+
+            // Fetch profile after sign in
+            if (newSession?.user) {
+              const userProfile = await authService.getUserProfile(newSession.user.id);
+              if (mounted) {
+                setProfile(userProfile);
+              }
+            }
+            break;
+
+          case 'SIGNED_OUT':
+            setSession(null);
+            setUser(null);
+            setProfile(null);
+            setIsAuthenticated(false);
+            setError(null);
+            break;
+
+          case 'TOKEN_REFRESHED':
+            setSession(newSession);
+            break;
+
+          case 'USER_UPDATED':
+            setUser(newSession.user);
+            if (newSession?.user) {
+              const userProfile = await authService.getUserProfile(newSession.user.id);
+              if (mounted) {
+                setProfile(userProfile);
+              }
+            }
+            break;
+
+          default:
+            break;
+        }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
-  async function fetchProfile(userId) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (!error && data) {
-      setProfile(data);
+  /**
+   * Sign in with Google
+   */
+  const signInWithGoogle = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      await authService.signInWithGoogle();
+      // Redirect happens, no need to update state here
+    } catch (err) {
+      console.error('Google sign in error:', err);
+      setError(err.message);
+      setLoading(false);
+      throw err;
     }
-  }
+  }, []);
+
+  /**
+   * Sign out
+   */
+  const signOut = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      await authService.signOut();
+      
+      // State will be updated by the auth state listener
+    } catch (err) {
+      console.error('Sign out error:', err);
+      setError(err.message);
+      setLoading(false);
+      throw err;
+    }
+  }, []);
+
+  /**
+   * Update user profile
+   */
+  const updateProfile = useCallback(async (updates) => {
+    try {
+      setError(null);
+      const updatedProfile = await authService.updateProfile(updates);
+      setProfile(updatedProfile);
+      return updatedProfile;
+    } catch (err) {
+      console.error('Update profile error:', err);
+      setError(err.message);
+      throw err;
+    }
+  }, []);
+
+  /**
+   * Refresh user data
+   */
+  const refreshUser = useCallback(async () => {
+    try {
+      const currentUser = await authService.getUser();
+      if (currentUser) {
+        setUser(currentUser);
+        const userProfile = await authService.getUserProfile(currentUser.id);
+        setProfile(userProfile);
+      }
+    } catch (err) {
+      console.error('Refresh user error:', err);
+      setError(err.message);
+    }
+  }, []);
 
   const value = {
     user,
     profile,
+    session,
     loading,
-    signUp: authService.signUp,
-    signIn: authService.signIn,
-    signInWithProvider: authService.signInWithProvider,
-    signOut: authService.signOut,
-    updateProfile: async (updates) => {
-      const data = await authService.updateProfile(updates);
-      if (profile) {
-        setProfile({ ...profile, ...updates });
-      }
-      return data;
-    },
+    error,
+    isAuthenticated,
+    signInWithGoogle,
+    signOut,
+    updateProfile,
+    refreshUser,
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export default AuthContext;

@@ -32,3 +32,39 @@
     display: none;
   }
 }
+
+@layer components {
+  /* Video card hover effects */
+  .video-card-hover {
+    @apply transition-all duration-300 ease-out;
+  }
+  
+  .video-card-hover:hover {
+    @apply shadow-video-card-hover -translate-y-1;
+  }
+  
+  /* Thumbnail zoom effect */
+  .thumbnail-zoom {
+    @apply transition-transform duration-500 ease-out;
+  }
+  
+  .thumbnail-zoom:hover {
+    @apply scale-105;
+  }
+  
+  /* Action buttons slide in */
+  .actions-slide-in {
+    @apply transition-all duration-200;
+    opacity: 0;
+    transform: translateX(0.5rem);
+  }
+  
+  .group:hover .actions-slide-in {
+    @apply opacity-100 translate-x-0;
+  }
+  
+  /* Progress bar animation */
+  .progress-animate {
+    transition: width 0.5s ease-out;
+  }
+}
