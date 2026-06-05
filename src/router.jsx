@@ -88,4 +88,28 @@ export const router = createBrowserRouter([
       </SuspenseWrapper>
     ),
   },
+  {
+    path: 'search',
+    element: (
+      <SuspenseWrapper>
+        <Search />
+      </SuspenseWrapper>
+    ),
+  },
+  {
+    path: 'continue-watching',
+    element: (
+      <SuspenseWrapper>
+        <ContinueWatching />
+      </SuspenseWrapper>
+    ),
+  },
+  {
+    path: 'settings',
+    element: (
+      <SuspenseWrapper>
+        <Settings />
+      </SuspenseWrapper>
+    ),
+  },
 ]);

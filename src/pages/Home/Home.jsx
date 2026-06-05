@@ -144,6 +144,36 @@ export default function Home() {
             />
           )}
 
+            {/* Continue Watching Section */}
+            {continueWatchingVideos.length > 0 && (
+            <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-8"
+            >
+                <div className="flex items-center justify-between mb-4">
+                <h2 className="text-heading-lg font-semibold text-text-primary">
+                    Continue Watching
+                </h2>
+                <Link 
+                    to="/continue-watching"
+                    className="text-body-sm text-accent-blue hover:text-accent-blue-hover transition-colors"
+                >
+                    View All →
+                </Link>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {continueWatchingVideos.slice(0, 4).map((video) => (
+                    <ContinueWatchingCard
+                    key={video.video_id}
+                    video={video}
+                    onRemove={removeVideo}
+                    />
+                ))}
+                </div>
+            </motion.section>
+            )}
           {/* Video Grid */}
           {videos.length > 0 && (
             <>

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /auth/
+Disallow: /settings
+Sitemap: https://focused-tube.vercel.app/sitemap.xml

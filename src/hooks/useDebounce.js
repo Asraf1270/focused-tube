@@ -4,6 +4,12 @@ export function useDebounce(value, delay = 300) {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
   useEffect(() => {
+    // Update immediately if value is empty
+    if (!value) {
+      setDebouncedValue(value);
+      return;
+    }
+
     const timer = setTimeout(() => {
       setDebouncedValue(value);
     }, delay);

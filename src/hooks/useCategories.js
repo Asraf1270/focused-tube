@@ -1,140 +1,93 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { categoryService } from '@/lib/supabase/services/categoryService';
-import { useAuth } from '@/hooks/useAuth';
+import { bookmarkService } from '@/lib/supabase/services/bookmarkService';
 import toast from 'react-hot-toast';
 
-/**
- * Custom hook for category management
- */
-export function useCategories() {
-  const { user } = useAuth();
+export function useBookmarks(videoId) {
   const queryClient = useQueryClient();
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const lastAddedRef = useRef(null);
 
-  // Fetch categories
-  const {
-    data: categories = [],
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: ['categories'],
-    queryFn: categoryService.getCategories,
-    enabled: !!user,
+  const { data: bookmarks = [], isLoading } = useQuery({
+    queryKey: ['bookmarks', videoId],
+    queryFn: () => bookmarkService.getVideoBookmarks(videoId),
+    enabled: !!videoId,
+    staleTime: 30 * 1000,
   });
 
-  // Create category mutation
-  const createMutation = useMutation({
-    mutationFn: categoryService.createCategory,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-      toast.success('Category created successfully! 🎉');
-    },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to create category');
-    },
-  });
-
-  // Update category mutation
-  const updateMutation = useMutation({
-    mutationFn: ({ id, ...updates }) => categoryService.updateCategory(id, updates),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-      toast.success('Category updated!');
-    },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to update category');
-    },
-  });
-
-  // Delete category mutation
-  const deleteMutation = useMutation({
-    mutationFn: categoryService.deleteCategory,
+  const addBookmarkMutation = useMutation({
+    mutationFn: (data) => bookmarkService.createBookmark({ ...data, videoId }),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-      queryClient.invalidateQueries({ queryKey: ['category-videos'] });
-      toast.success(`"${data.category_name}" deleted`);
+      lastAddedRef.current = data.id;
+      queryClient.invalidateQueries({ queryKey: ['bookmarks', videoId] });
+      toast.success('Bookmark added! 🔖');
     },
     onError: (error) => {
-      toast.error(error.message || 'Failed to delete category');
+      if (error.message?.includes('duplicate')) {
+        toast.error('Bookmark already exists at this timestamp');
+      } else {
+        toast.error('Failed to add bookmark');
+      }
     },
   });
 
-  // Assign video mutation
-  const assignVideoMutation = useMutation({
-    mutationFn: ({ videoId, categoryId }) => 
-      categoryService.assignVideoToCategory(videoId, categoryId),
+  const quickBookmarkMutation = useMutation({
+    mutationFn: (timestampSeconds) => bookmarkService.quickBookmark(videoId, timestampSeconds),
+    onSuccess: (data) => {
+      lastAddedRef.current = data.id;
+      queryClient.invalidateQueries({ queryKey: ['bookmarks', videoId] });
+      toast.success('Bookmarked! ⚡', { duration: 1500 });
+    },
+    onError: () => {
+      // Silently fail for quick bookmark (might be duplicate)
+    },
+  });
+
+  const deleteBookmarkMutation = useMutation({
+    mutationFn: (bookmarkId) => bookmarkService.deleteBookmark(bookmarkId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-      queryClient.invalidateQueries({ queryKey: ['category-videos'] });
-      toast.success('Video added to category');
+      queryClient.invalidateQueries({ queryKey: ['bookmarks', videoId] });
+      toast.success('Bookmark removed');
     },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to assign video');
-    },
+    onError: () => toast.error('Failed to remove bookmark'),
   });
 
-  // Remove video mutation
-  const removeVideoMutation = useMutation({
-    mutationFn: ({ videoId, categoryId }) =>
-      categoryService.removeVideoFromCategory(videoId, categoryId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-      queryClient.invalidateQueries({ queryKey: ['category-videos'] });
-      toast.success('Video removed from category');
-    },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to remove video');
-    },
-  });
+  const addBookmark = useCallback(async (data) => {
+    return addBookmarkMutation.mutateAsync(data);
+  }, [addBookmarkMutation]);
 
-  // Create category
-  const createCategory = useCallback(async (data) => {
-    return createMutation.mutateAsync(data);
-  }, [createMutation]);
+  const quickBookmark = useCallback(async (timestampSeconds) => {
+    return quickBookmarkMutation.mutateAsync(timestampSeconds);
+  }, [quickBookmarkMutation]);
 
-  // Update category
-  const updateCategory = useCallback(async (id, updates) => {
-    return updateMutation.mutateAsync({ id, ...updates });
-  }, [updateMutation]);
+  const deleteBookmark = useCallback(async (bookmarkId) => {
+    return deleteBookmarkMutation.mutateAsync(bookmarkId);
+  }, [deleteBookmarkMutation]);
 
-  // Delete category
-  const deleteCategory = useCallback(async (id) => {
-    return deleteMutation.mutateAsync(id);
-  }, [deleteMutation]);
+  // Check if a timestamp has a bookmark
+  const hasBookmarkAt = useCallback((timestampSeconds) => {
+    const tolerance = 2; // 2 second tolerance
+    return bookmarks.some(b => 
+      Math.abs(b.timestamp_seconds - Math.floor(timestampSeconds)) <= tolerance
+    );
+  }, [bookmarks]);
 
-  // Assign video to category
-  const assignVideo = useCallback(async (videoId, categoryId) => {
-    return assignVideoMutation.mutateAsync({ videoId, categoryId });
-  }, [assignVideoMutation]);
-
-  // Remove video from category
-  const removeVideo = useCallback(async (videoId, categoryId) => {
-    return removeVideoMutation.mutateAsync({ videoId, categoryId });
-  }, [removeVideoMutation]);
+  // Get bookmark at specific timestamp
+  const getBookmarkAt = useCallback((timestampSeconds) => {
+    const tolerance = 2;
+    return bookmarks.find(b => 
+      Math.abs(b.timestamp_seconds - Math.floor(timestampSeconds)) <= tolerance
+    );
+  }, [bookmarks]);
 
   return {
-    // State
-    categories,
+    bookmarks,
     isLoading,
-    error,
-    selectedCategory,
-    
-    // Actions
-    setSelectedCategory,
-    createCategory,
-    updateCategory,
-    deleteCategory,
-    assignVideo,
-    removeVideo,
-    refetch,
-    
-    // Mutation states
-    isCreating: createMutation.isPending,
-    isUpdating: updateMutation.isPending,
-    isDeleting: deleteMutation.isPending,
+    addBookmark,
+    quickBookmark,
+    deleteBookmark,
+    hasBookmarkAt,
+    getBookmarkAt,
+    lastAddedId: lastAddedRef.current,
+    isAdding: addBookmarkMutation.isPending,
   };
 }
-
-export default useCategories;

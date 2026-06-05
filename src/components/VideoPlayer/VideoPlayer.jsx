@@ -1,21 +1,189 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function VideoPlayer({ 
+/**
+ * Enhanced VideoPlayer with YouTube API integration
+ * Exposes controls for seeking, play/pause, and time tracking
+ */
+const VideoPlayer = forwardRef(function VideoPlayer({ 
   videoId, 
   onReady, 
-  onProgress, 
+  onTimeUpdate, 
+  onStateChange,
   startTime = 0,
   autoplay = true,
   className = '' 
-}) {
+}, ref) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(autoplay);
+  const [playerState, setPlayerState] = useState(-1); // -1: unstarted, 0: ended, 1: playing, 2: paused, 3: buffering, 5: cued
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [volume, setVolume] = useState(100);
+  const [isMuted, setIsMuted] = useState(false);
+  
   const playerRef = useRef(null);
   const iframeRef = useRef(null);
+  const timeUpdateIntervalRef = useRef(null);
 
-  // Build YouTube embed URL with parameters
+  // YouTube Player States
+  const PlayerState = {
+    UNSTARTED: -1,
+    ENDED: 0,
+    PLAYING: 1,
+    PAUSED: 2,
+    BUFFERING: 3,
+    CUED: 5,
+  };
+
+  // Expose player controls to parent
+  useImperativeHandle(ref, () => ({
+    seekTo: (time) => {
+      playerRef.current?.seekTo(time, true);
+    },
+    play: () => {
+      playerRef.current?.playVideo();
+    },
+    pause: () => {
+      playerRef.current?.pauseVideo();
+    },
+    togglePlay: () => {
+      if (playerState === PlayerState.PLAYING) {
+        playerRef.current?.pauseVideo();
+      } else {
+        playerRef.current?.playVideo();
+      }
+    },
+    setVolume: (vol) => {
+      playerRef.current?.setVolume(vol);
+      setVolume(vol);
+    },
+    toggleMute: () => {
+      if (isMuted) {
+        playerRef.current?.unMute();
+      } else {
+        playerRef.current?.mute();
+      }
+      setIsMuted(!isMuted);
+    },
+    setPlaybackRate: (rate) => {
+      playerRef.current?.setPlaybackRate(rate);
+      setPlaybackRate(rate);
+    },
+    getCurrentTime: () => currentTime,
+    getDuration: () => duration,
+    getPlayerState: () => playerState,
+  }));
+
+  // Load YouTube API
+  useEffect(() => {
+    if (!videoId) return;
+
+    // Load YouTube IFrame API if not already loaded
+    if (!window.YT) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+      window.onYouTubeIframeAPIReady = initializePlayer;
+    } else {
+      initializePlayer();
+    }
+
+    return () => {
+      cleanup();
+    };
+  }, [videoId]);
+
+  // Update start time
+  useEffect(() => {
+    if (playerRef.current && startTime > 0) {
+      playerRef.current.seekTo(startTime, true);
+    }
+  }, [startTime]);
+
+  const initializePlayer = () => {
+    cleanup();
+
+    playerRef.current = new window.YT.Player(iframeRef.current, {
+      videoId,
+      playerVars: {
+        autoplay: autoplay ? 1 : 0,
+        modestbranding: 1,
+        rel: 0,
+        showinfo: 0,
+        controls: 1,
+        fs: 1,
+        iv_load_policy: 3,
+        cc_load_policy: 1,
+        start: Math.floor(startTime),
+        enablejsapi: 1,
+        origin: window.location.origin,
+        widgetid: '1',
+        playsinline: 1,
+      },
+      events: {
+        onReady: handleReady,
+        onStateChange: handleStateChange,
+        onError: handleError,
+      },
+    });
+  };
+
+  const handleReady = (event) => {
+    setIsLoading(false);
+    setDuration(event.target.getDuration());
+    
+    // Start time tracking
+    timeUpdateIntervalRef.current = setInterval(() => {
+      if (playerRef.current?.getCurrentTime) {
+        const time = playerRef.current.getCurrentTime();
+        setCurrentTime(time);
+        onTimeUpdate?.(time);
+      }
+    }, 250); // Update every 250ms for smooth UI
+
+    onReady?.(event.target);
+  };
+
+  const handleStateChange = (event) => {
+    setPlayerState(event.data);
+    onStateChange?.(event.data);
+
+    if (event.data === PlayerState.PLAYING) {
+      setDuration(event.target.getDuration());
+    }
+  };
+
+  const handleError = (event) => {
+    setIsLoading(false);
+    setError(getErrorMessage(event.data));
+  };
+
+  const getErrorMessage = (errorCode) => {
+    const errors = {
+      2: 'Invalid video ID. Please check the URL.',
+      5: 'HTML5 player error. Try refreshing the page.',
+      100: 'Video not found. It may have been removed.',
+      101: 'Video embedding disabled by owner.',
+      150: 'Video embedding disabled by owner.',
+    };
+    return errors[errorCode] || 'An error occurred while loading the video.';
+  };
+
+  const cleanup = () => {
+    if (timeUpdateIntervalRef.current) {
+      clearInterval(timeUpdateIntervalRef.current);
+    }
+    if (playerRef.current?.destroy) {
+      playerRef.current.destroy();
+    }
+    playerRef.current = null;
+  };
+
+  // Build embed URL for fallback
   const embedUrl = `https://www.youtube.com/embed/${videoId}?${new URLSearchParams({
     autoplay: autoplay ? '1' : '0',
     modestbranding: '1',
@@ -23,29 +191,10 @@ export default function VideoPlayer({
     showinfo: '0',
     controls: '1',
     fs: '1',
-    iv_load_policy: '3',
-    cc_load_policy: '1',
-    start: Math.floor(startTime),
     enablejsapi: '1',
     origin: window.location.origin,
-    widgetid: '1',
+    start: Math.floor(startTime),
   }).toString()}`;
-
-  useEffect(() => {
-    // Reset state when video changes
-    setIsLoading(true);
-    setError(null);
-  }, [videoId]);
-
-  const handleLoad = useCallback(() => {
-    setIsLoading(false);
-    onReady?.();
-  }, [onReady]);
-
-  const handleError = useCallback(() => {
-    setIsLoading(false);
-    setError('Failed to load video. Please try again.');
-  }, []);
 
   return (
     <div className={`relative w-full h-full bg-black ${className}`}>
@@ -62,7 +211,7 @@ export default function VideoPlayer({
                 <div className="w-16 h-16 border-4 border-surface-hover rounded-full" />
                 <div className="absolute top-0 left-0 w-16 h-16 border-4 border-accent-blue rounded-full border-t-transparent animate-spin" />
               </div>
-              <p className="text-body-base text-text-secondary">Loading video...</p>
+              <p className="text-body-base text-text-secondary">Loading player...</p>
             </div>
           </motion.div>
         )}
@@ -87,14 +236,7 @@ export default function VideoPlayer({
               </h3>
               <p className="text-body-base text-text-secondary mb-4">{error}</p>
               <button
-                onClick={() => {
-                  setError(null);
-                  setIsLoading(true);
-                  // Force iframe reload
-                  if (iframeRef.current) {
-                    iframeRef.current.src = iframeRef.current.src;
-                  }
-                }}
+                onClick={() => { setError(null); setIsLoading(true); initializePlayer(); }}
                 className="px-4 py-2 bg-accent-blue text-white rounded-lg hover:bg-accent-blue-hover transition-colors"
               >
                 Try Again
@@ -104,37 +246,22 @@ export default function VideoPlayer({
         )}
       </AnimatePresence>
 
-      {/* YouTube Iframe */}
+      {/* YouTube Iframe (hidden, used by API) */}
+      <div className="absolute inset-0 opacity-0 pointer-events-none">
+        <div ref={iframeRef} />
+      </div>
+
+      {/* Fallback Iframe (shown if API fails) */}
       <iframe
-        ref={iframeRef}
         src={embedUrl}
         title="YouTube video player"
         className="w-full h-full"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
-        onLoad={handleLoad}
-        onError={handleError}
+        onLoad={() => !playerRef.current && setIsLoading(false)}
       />
-
-      {/* Focus Mode Controls Overlay */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 opacity-0 hover:opacity-100 transition-opacity">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button className="p-2 text-white hover:bg-white/10 rounded-full transition-colors">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="p-2 text-white hover:bg-white/10 rounded-full transition-colors">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
-}
+});
+
+export default VideoPlayer;

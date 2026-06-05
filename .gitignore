@@ -1,24 +1,387 @@
-# Logs
-logs
+# ============================================
+# FOCUSEDTUBE - .gitignore
+# ============================================
+
+# ============================================
+# DEPENDENCIES
+# ============================================
+node_modules/
+.pnp
+.pnp.js
+jspm_packages/
+
+# ============================================
+# BUILD OUTPUT
+# ============================================
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+
+# Vite build cache
+.vite/
+vite.config.ts.timestamp-*
+
+# ============================================
+# ENVIRONMENT VARIABLES
+# ============================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# Keep example files
+!.env.example
+!.env.development
+!.env.production
+
+# ============================================
+# SECRETS & KEYS
+# ============================================
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+secret*
+secrets/
+credentials.json
+service-account.json
+google-credentials.json
+supabase-credentials.json
+
+# ============================================
+# SUPABASE
+# ============================================
+# Supabase local development
+supabase/.branches/
+supabase/.temp/
+
+# Keep migrations and config
+!supabase/migrations/
+!supabase/config.toml
+!supabase/seed.sql
+
+# ============================================
+# IDE & EDITOR
+# ============================================
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+.history/
+*.vsix
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Android Studio
+*.apk
+*.aab
+*.jks
+*.keystore
+local.properties
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.netrwhist
+.vimrc
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# NetBeans
+nbproject/
+nbbuild/
+dist/
+nbdist/
+
+# Xcode
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+*.xccheckout
+*.moved-aside
+DerivedData/
+*.hmap
+*.ipa
+*.xcuserstate
+
+# ============================================
+# OPERATING SYSTEM
+# ============================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# macOS Finder
+**/.DS_Store
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ============================================
+# LOGS & DATABASES
+# ============================================
 *.log
+logs/
+*.log.*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+pids/
+*.pid
+*.seed
+*.pid.lock
 
-node_modules
-dist
-dist-ssr
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# ============================================
+# TESTING & COVERAGE
+# ============================================
+coverage/
+.coverage
+.coverage.*
+coverage.*
+*.lcov
+.nyc_output/
+.nyc_output
+jest-coverage/
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+cypress/videos/
+cypress/screenshots/
+.vitest/
+
+# ============================================
+# MISCELLANEOUS
+# ============================================
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*.orig
+*.old
+*.previous
+
+# Backup files
+*.backup
+*.backup.*
+*.bkp
+*.bkp.*
+
+# Cache
+.cache/
+*.cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Package lock files (if using yarn/pnpm)
+# yarn.lock
+# pnpm-lock.yaml
+
+# Parcel
+.cache/
+.parcel-cache/
+
+# Turbo
+.turbo/
+
+# Nx
+.nx/
+
+# Storybook
+storybook-static/
+
+# Bundle analysis
+stats.html
+stats.json
+
+# Local development
 *.local
+dev-dist/
+dev-build/
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# SSL certificates
+*.crt
+*.csr
+*.der
+*.pem.crt
+*.pem.key
+
+# Docker
+docker-compose.override.yml
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# ============================================
+# PROJECT SPECIFIC
+# ============================================
+
+# Uploaded files
+uploads/
+user-content/
+user-uploads/
+attachments/
+media/
+
+# Generated files
+generated/
+gen/
+auto-generated/
+
+# Local configuration
+config/local.*
+config/development.*
+config/production.*
+
+# Database dumps
+*.dump
+*.sql.gz
+database/backups/
+
+# Export files
+exports/
+export-*.json
+focused-tube-export-*.json
+
+# Screenshots (except those in public)
+screenshots/
+!public/screenshots/
+
+# Performance profiles
+*.cpuprofile
+*.heapprofile
+*.heapsnapshot
+
+# ============================================
+# SECURITY (DO NOT COMMIT)
+# ============================================
+
+# Any files containing secrets
+**/secrets/**
+**/credentials/**
+**/*secret*
+**/*credential*
+**/*password*
+**/*token*
+
+# Private keys
+**/*.pem
+**/*.key
+**/*-key.*
+**/private*
+
+# ============================================
+# OPTIONAL: UNCOMMENT IF NEEDED
+# ============================================
+
+# Uncomment if using Yarn
+# yarn.lock
+# .yarn/
+# .yarnrc.yml
+
+# Uncomment if using PNPM
+# pnpm-lock.yaml
+# .pnpm-store/
+
+# Uncomment if you want to ignore package-lock
+# package-lock.json
+
+# Uncomment for specific frameworks
+# .next/
+# .nuxt/
+# .svelte-kit/
+# .astro/
